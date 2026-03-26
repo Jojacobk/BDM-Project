@@ -109,9 +109,9 @@ spark.read.table("lakehouse.taxi.bronze") \
 
 **Output:**
 
-```
+
 ![kafka_time vs pickup_time query output](images/BDM1.png)
-```
+
 
 `kafka_time` is March 2026 (current ingestion time minus 5 minutes). `pickup_time` is January 2025 (the actual trip event time). The gap is ~449 days — they are completely independent values.
 
