@@ -140,7 +140,12 @@ def main() -> None:
                 # Use VendorID as the partition key so trips from the same
                 # vendor land on the same partition (ordering guarantee).
                 key = str(msg.get("VendorID", ""))
-                producer.send(args.topic, key=key, value=msg)
+                producer.send(
+                    args.topic,
+                    key=key,
+                    value=msg,
+                    timestamp_ms=int(time.time() * 1000) - (5 * 60 * 1000),
+                )
                 sent += 1
 
                 if sent == 1 or sent % 100 == 0:
