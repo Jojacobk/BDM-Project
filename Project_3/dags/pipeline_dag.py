@@ -97,37 +97,37 @@ with DAG(
 
     bronze_cdc = BashOperator(
         task_id      = "bronze_cdc",
-        bash_command = "docker exec jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/02_bronze_cdc.ipynb /tmp/out_bronze_cdc.ipynb",
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/02_bronze_cdc.ipynb /tmp/out_bronze_cdc.ipynb",
     )
 
     bronze_taxi = BashOperator(
         task_id      = "bronze_taxi",
-        bash_command = 'echo "STUB bronze_taxi"',
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/05_bronze_taxi.ipynb /tmp/out_bronze_taxi.ipynb",
     )
 
     silver_cdc = BashOperator(
         task_id      = "silver_cdc",
-        bash_command = "docker exec jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/03_silver_cdc.ipynb /tmp/out_silver_cdc.ipynb",
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/03_silver_cdc.ipynb /tmp/out_silver_cdc.ipynb",
     )
 
     silver_taxi = BashOperator(
         task_id      = "silver_taxi",
-        bash_command = 'echo "STUB silver_taxi"',
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/06_silver_taxi.ipynb /tmp/out_silver_taxi.ipynb",
     )
 
     gold_taxi = BashOperator(
         task_id      = "gold_taxi",
-        bash_command = 'echo "STUB gold_taxi"',
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/07_gold_taxi.ipynb /tmp/out_gold_taxi.ipynb",
     )
 
     gold_congestion = BashOperator(
         task_id      = "gold_congestion",
-        bash_command = 'echo "STUB gold_congestion"',
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/08_gold_congestion.ipynb /tmp/out_gold_congestion.ipynb",
     )
 
     validation = BashOperator(
         task_id      = "validation",
-        bash_command = "docker exec jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/04_validation.ipynb /tmp/out_validation.ipynb",
+        bash_command = "docker exec -e PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.9-src.zip jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/04_validation.ipynb /tmp/out_validation.ipynb",
         retries      = 0,
     )
 
