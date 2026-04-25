@@ -90,14 +90,14 @@ with DAG(
 
     health_check = BashOperator(
         task_id      = "health_check",
-        bash_command = "docker exec jupyter python /home/jovyan/project/scripts/health_check.py",
+        bash_command = "docker exec jupyter /opt/conda/bin/python /home/jovyan/project/scripts/health_check.py",
         retries      = 1,
         retry_delay  = timedelta(seconds=30),
     )
 
     bronze_cdc = BashOperator(
         task_id      = "bronze_cdc",
-        bash_command = "docker exec jupyter papermill /home/jovyan/project/notebooks/02_bronze_cdc.ipynb /tmp/out_bronze_cdc.ipynb",
+        bash_command = "docker exec jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/02_bronze_cdc.ipynb /tmp/out_bronze_cdc.ipynb",
     )
 
     bronze_taxi = BashOperator(
@@ -107,7 +107,7 @@ with DAG(
 
     silver_cdc = BashOperator(
         task_id      = "silver_cdc",
-        bash_command = "docker exec jupyter papermill /home/jovyan/project/notebooks/03_silver_cdc.ipynb /tmp/out_silver_cdc.ipynb",
+        bash_command = "docker exec jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/03_silver_cdc.ipynb /tmp/out_silver_cdc.ipynb",
     )
 
     silver_taxi = BashOperator(
@@ -127,7 +127,7 @@ with DAG(
 
     validation = BashOperator(
         task_id      = "validation",
-        bash_command = "docker exec jupyter papermill /home/jovyan/project/notebooks/04_validation.ipynb /tmp/out_validation.ipynb",
+        bash_command = "docker exec jupyter /opt/conda/bin/papermill /home/jovyan/project/notebooks/04_validation.ipynb /tmp/out_validation.ipynb",
         retries      = 0,
     )
 
