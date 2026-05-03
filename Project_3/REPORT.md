@@ -107,7 +107,7 @@ connector_health
   `-- bronze_taxi -> silver_taxi -> gold_taxi -- validate
 ```
 
-![Airflow DAG graph](screenshots/airflow_dag_graph.png)
+![Airflow DAG graph and recent task run history](image.png)
 
 `connector_health` registers or validates the Debezium connector and gates both branches. A connector failure stops downstream tasks because Airflow's default trigger rule requires upstream success. Bronze CDC and Bronze Taxi then run independently. Silver CDC waits for Bronze CDC, Silver Taxi waits for Bronze Taxi, Gold Taxi waits for Silver Taxi, and `validate` waits for both Silver CDC and Gold Taxi.
 
