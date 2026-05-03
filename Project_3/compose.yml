@@ -159,17 +159,12 @@ services:
       - PG_PASSWORD=${PG_PASSWORD:-cdc_pass}
     volumes:
       - ./dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
       - airflow-data:/opt/airflow
     entrypoint: >
       /bin/bash -c "
         airflow db migrate;
-        airflow users create
-          --username ${AIRFLOW_USER:-admin}
-          --password ${AIRFLOW_PASSWORD:-admin}
-          --firstname Admin
-          --lastname User
-          --role Admin
-          --email admin@example.com 2>/dev/null || true;
+        airflow users create --username ${AIRFLOW_USER:-admin} --password ${AIRFLOW_PASSWORD:-admin} --firstname Admin --role Admin --email admin@example.com 2>/dev/null || true;
         exec airflow standalone
       "
     healthcheck:
