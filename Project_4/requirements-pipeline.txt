@@ -1,0 +1,14 @@
+# Pipeline runtime deps (installed into the Airflow image on top of requirements.txt)
+slack_sdk>=3.27
+slack_bolt>=1.18
+psycopg[binary]>=3.2
+pgvector>=0.3
+boto3>=1.35
+requests>=2.32
+datasets<3
+huggingface_hub<0.24
+fsspec<2024.4
+torch>=2.4
+open-clip-torch>=2.30
+sentence-transformers>=3.0
+numpy>=1.26
