@@ -226,3 +226,35 @@ def load(ctx: RunContext) -> int:
         cur.execute("SELECT count(*) FROM screens_embeddings WHERE run_id=%s", (ctx.run_id,))
         emb = cur.fetchone()[0]
     return meta + emb
+
+
+def build_holdout_queries(order: list[int], reps: dict[int, str]):
+    """Disjoint holdout: screen i is queried with screen (i+1)%n's text."""
+    n = len(order)
+    return [(sid, reps[order[(i + 1) % n]]) for i, sid in enumerate(order)]
+
+
+def eval_recall(ctx: RunContext, k: int = 5) -> float:
+    from sentence_transformers import SentenceTransformer
+    chosen = _chosen_ids()[: ctx.limit]
+    s3 = s3_client()
+    sbert = SentenceTransformer(config.SBERT_MODEL_VERSION)
+    reps = {sid: _text_rep_for(sid, s3) for sid in chosen}
+    queries = build_holdout_queries(chosen, reps)
+    nearest = (
+        "SELECT screen_id FROM screens_embeddings WHERE embedding_kind='text' "
+        "AND run_id=%s ORDER BY vector <-> %s::vector LIMIT %s"
+    )
+    hits = 0
+    with pg_connect() as conn, conn.cursor() as cur:
+        for expected, q in queries:
+            qvec = sbert.encode([q], normalize_embeddings=True).astype("float32")[0]
+            cur.execute(nearest, (ctx.run_id, qvec, k))
+            if expected in [r[0] for r in cur.fetchall()]:
+                hits += 1
+        recall = hits / len(queries) if queries else 0.0
+        cur.execute(
+            "INSERT INTO screens_eval (embedding_model_version, n_queries, recall_at_5) "
+            "VALUES (%s, %s, %s)", (config.SBERT_MODEL_VERSION, len(queries), recall))
+        conn.commit()
+    return recall
