@@ -28,3 +28,23 @@ def record_metric_sql(run_id, task_id, metric_name, value, labels=None):
            "ON CONFLICT (run_id, task_id, metric_name) DO UPDATE "
            "SET metric_value = EXCLUDED.metric_value, labels = EXCLUDED.labels")
     return sql, (run_id, task_id, metric_name, value, json.dumps(labels or {}))
+
+
+DQ_QUERIES = {
+    "meta": """
+        SELECT COUNT(*),
+               AVG((extraction_payload IS NOT NULL)::int) * 100,
+               AVG((COALESCE(confidence, 0) >= 0.5)::int) * 100
+        FROM screens_metadata WHERE run_id = %s
+    """,
+    "emb": """
+        SELECT model_version, embedding_kind, COUNT(*), AVG(vector_dims(vector))
+        FROM screens_embeddings WHERE run_id = %s
+        GROUP BY model_version, embedding_kind
+    """,
+    "distinct": """
+        SELECT COUNT(DISTINCT app_package), COUNT(DISTINCT category),
+               (SELECT COUNT(*) FROM screens_review_queue WHERE run_id = %s)
+        FROM screens_metadata WHERE run_id = %s
+    """,
+}
