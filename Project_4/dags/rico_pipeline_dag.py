@@ -47,7 +47,7 @@ def rico_pipeline():
 
     @task
     def ingest():
-        ctx = _ctx_from_xcom(get_current_context()["ti"]); stages.ingest(ctx)
+        ctx = _ctx_from_xcom(get_current_context()["ti"]); return stages.ingest(ctx)
 
     @task
     def parse():
@@ -57,19 +57,19 @@ def rico_pipeline():
 
     @task
     def embed_image():
-        ctx = _ctx_from_xcom(get_current_context()["ti"]); stages.embed_image(ctx)
+        ctx = _ctx_from_xcom(get_current_context()["ti"]); return stages.embed_image(ctx)
 
     @task
     def embed_text():
-        ctx = _ctx_from_xcom(get_current_context()["ti"]); stages.embed_text(ctx)
+        ctx = _ctx_from_xcom(get_current_context()["ti"]); return stages.embed_text(ctx)
 
     @task
     def extract():
-        ctx = _ctx_from_xcom(get_current_context()["ti"]); stages.extract(ctx)
+        ctx = _ctx_from_xcom(get_current_context()["ti"]); return stages.extract(ctx)
 
     @task
     def load():
-        ctx = _ctx_from_xcom(get_current_context()["ti"]); stages.load(ctx)
+        ctx = _ctx_from_xcom(get_current_context()["ti"]); return stages.load(ctx)
 
     @task
     def audit():

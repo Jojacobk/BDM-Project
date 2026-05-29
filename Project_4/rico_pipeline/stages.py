@@ -43,7 +43,8 @@ def text_representation(elements) -> str:
     return " ".join(text for _, text, _ in in_order)
 
 
-PROMPT_VERSION = "v1"
+# Single source of truth lives in config; re-exported here for the prompt's callers.
+PROMPT_VERSION = config.PROMPT_VERSION
 PROMPT_V1 = """\
 You are a UI structure extractor for Android app screenshots.
 

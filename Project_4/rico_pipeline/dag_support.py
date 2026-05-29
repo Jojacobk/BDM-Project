@@ -37,6 +37,13 @@ def finalize(airflow_context):
             r_sql, r_params = obs.record_metric_sql(
                 ctx.run_id, t.task_id, "retries", float(max((t.try_number or 1) - 1, 0)))
             cur.execute(r_sql, r_params)
+        # per-task rows written (row count out), pulled from the stage XComs (§3.4).
+        for stage_id in ("ingest", "embed_image", "embed_text", "extract", "load"):
+            rows = ti.xcom_pull(task_ids=stage_id)
+            if rows is not None:
+                rw_sql, rw_params = obs.record_metric_sql(
+                    ctx.run_id, stage_id, "rows_written", float(rows))
+                cur.execute(rw_sql, rw_params)
         cur.execute(obs.DQ_QUERIES["meta"], (ctx.run_id,))
         meta_count, extracted_pct, conf_pct = cur.fetchone()
         cur.execute(obs.DQ_QUERIES["emb"], (ctx.run_id,))
