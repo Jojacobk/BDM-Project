@@ -17,14 +17,26 @@ def finalize(airflow_context):
         return
     ctx = RunContext.from_dict(raw)
     dag_run = airflow_context["dag_run"]
+    tis = dag_run.get_task_instances()
     # state may be a str-enum (TaskInstanceState) or a plain string depending on
     # the Airflow version; normalise via .value so the comparison is robust.
-    failed = [t for t in dag_run.get_task_instances()
-              if getattr(t.state, "value", t.state) == "failed"]
+    failed = [t for t in tis if getattr(t.state, "value", t.state) == "failed"]
     audit_failed = any(t.task_id == "audit" for t in failed)
     status = "paused_by_audit" if audit_failed else ("failed" if failed else "succeeded")
+    total_duration = sum(t.duration or 0.0 for t in tis)
 
     with pg_connect() as conn, conn.cursor() as cur:
+        # health metrics, per task: duration + retries (§3.4).
+        for t in tis:
+            if t.task_id == "finalize_run":
+                continue  # still running; its duration isn't known yet
+            d_sql, d_params = obs.record_metric_sql(
+                ctx.run_id, t.task_id, "duration_seconds", float(t.duration or 0.0),
+                {"state": str(getattr(t.state, "value", t.state))})
+            cur.execute(d_sql, d_params)
+            r_sql, r_params = obs.record_metric_sql(
+                ctx.run_id, t.task_id, "retries", float(max((t.try_number or 1) - 1, 0)))
+            cur.execute(r_sql, r_params)
         cur.execute(obs.DQ_QUERIES["meta"], (ctx.run_id,))
         meta_count, extracted_pct, conf_pct = cur.fetchone()
         cur.execute(obs.DQ_QUERIES["emb"], (ctx.run_id,))
@@ -41,15 +53,20 @@ def finalize(airflow_context):
                           ("extracted_pct", float(extracted_pct or 0)),
                           ("confidence_ge_05_pct", float(conf_pct or 0)),
                           ("review_queue_count", review_count or 0),
-                          ("zero_norm_pct", zero_pct)]:
+                          ("zero_norm_pct", zero_pct),
+                          ("total_run_duration_seconds", total_duration)]:
             sql, params = obs.record_metric_sql(ctx.run_id, None, name, val)
             cur.execute(sql, params)
+        # final status as a queryable metric alongside pipeline_runs.status.
+        st_sql, st_params = obs.record_metric_sql(
+            ctx.run_id, None, "final_status", None, {"status": status})
+        cur.execute(st_sql, st_params)
         sql, params = finish_run_sql(ctx.run_id, status)
         cur.execute(sql, params)
         conn.commit()
 
     line = obs.summary_line(
-        run_id=ctx.run_id, status=status, duration_s=0.0, meta_count=meta_count or 0,
+        run_id=ctx.run_id, status=status, duration_s=total_duration, meta_count=meta_count or 0,
         extracted_pct=float(extracted_pct or 0), conf_pct=float(conf_pct or 0),
         review_count=review_count or 0, emb_counts=emb_counts, dims=dims,
         zero_pct=zero_pct, n_apps=n_apps or 0, n_cats=n_cats or 0)
