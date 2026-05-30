@@ -4,3 +4,9 @@
 .venv-lab/
 __pycache__/
 .pytest_cache/
+.ipynb_checkpoints/
+
+# Claude Code / superpowers scaffolding — not part of the deliverable
+CLAUDE.md
+.claude/
+docs/superpowers/
