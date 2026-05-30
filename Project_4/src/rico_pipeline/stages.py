@@ -401,18 +401,57 @@ def load(settings: Settings, run_id: str) -> dict[str, int]:
     started = time.perf_counter()
     with connect(settings) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT count(*)::int FROM screens_metadata WHERE run_id = %s",
+            """
+            SELECT
+                count(*)::int,
+                count(hierarchy_text)::int
+            FROM screens_metadata
+            WHERE run_id = %s
+            """,
             (run_id,),
         )
-        metadata_count = cur.fetchone()[0]
+        metadata_count, parsed_count = cur.fetchone()
         cur.execute(
-            "SELECT count(*)::int FROM screens_embeddings WHERE run_id = %s",
+            """
+            SELECT
+                count(*) FILTER (WHERE embedding_kind = 'image')::int,
+                count(*) FILTER (WHERE embedding_kind = 'text')::int
+            FROM screens_embeddings
+            WHERE run_id = %s
+            """,
             (run_id,),
         )
-        embedding_count = cur.fetchone()[0]
+        image_count, text_count = cur.fetchone()
+        cur.execute(
+            """
+            SELECT count(*)::int
+            FROM screens_review_queue
+            WHERE run_id = %s
+            """,
+            (run_id,),
+        )
+        review_queue_count = cur.fetchone()[0]
+
+    failures = []
+    if metadata_count == 0:
+        failures.append("metadata_count=0")
+    if parsed_count != metadata_count:
+        failures.append(f"parsed_count={parsed_count}, metadata_count={metadata_count}")
+    if image_count != metadata_count:
+        failures.append(f"image_count={image_count}, metadata_count={metadata_count}")
+    if text_count != metadata_count:
+        failures.append(f"text_count={text_count}, metadata_count={metadata_count}")
+    if failures:
+        raise RuntimeError(f"load validation failed for run_id={run_id}: {failures}")
+
+    loaded_count = metadata_count + image_count + text_count + review_queue_count
     return {
-        "rows_in": metadata_count + embedding_count,
-        "rows_out": metadata_count + embedding_count,
+        "rows_in": metadata_count + image_count + text_count,
+        "rows_out": loaded_count,
+        "metadata_rows": metadata_count,
+        "image_embedding_rows": image_count,
+        "text_embedding_rows": text_count,
+        "review_queue_rows": review_queue_count,
         "seconds": time.perf_counter() - started,
     }
 

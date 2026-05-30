@@ -22,6 +22,7 @@ start -> ingest -> parse -> [embed_image, embed_text, extract] -> load -> audit 
 - Ollama LLM extraction: `qwen2.5:3b` converts hierarchy text into structured JSON using the versioned `v1` prompt.
 - Idempotency: reruns refresh existing destination rows by natural key instead of blindly appending duplicates.
 - Traceability: every destination row has `run_id` and `source_fingerprint`, and every run records model versions, prompt version, Airflow run ID, limit, and git SHA.
+- Load validation: the `load` task is a destination completeness gate. It verifies metadata, parsed hierarchy text, image embeddings, and text embeddings before audit and eval.
 - Circuit breaker audit: duplicate detection is its own visible task. When it fails, eval is skipped and the run is marked `paused-by-audit`.
 - Observability: `pipeline_metrics` stores task health and data quality metrics so the pipeline can be evaluated with SQL.
 - Slack notifications: start, audit failure, and finish notifications are attempted through `SLACK_WEBHOOK_URL`; notification failure never fails the data pipeline. Audit-failure notifications include duplicate keys and the Airflow audit task log URL when Airflow provides it.

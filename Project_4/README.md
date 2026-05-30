@@ -93,6 +93,8 @@ Re-running with the same `LIMIT` creates a new `pipeline_runs` row and new metri
 
 The required audit runs after `load` and before `eval`.
 
+The `load` task is the destination completeness gate. It verifies that the current run has metadata, parsed hierarchy text, image embeddings, and text embeddings before the audit is allowed to run. If any required destination rows are missing, the DAG fails before audit/eval instead of producing misleading downstream evidence.
+
 It fails the DAG if:
 
 - the same `screen_id` appears more than once in `screens_metadata` for the current run
