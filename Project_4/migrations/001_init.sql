@@ -69,6 +69,14 @@ CREATE TABLE IF NOT EXISTS screens_review_queue (
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DELETE FROM screens_review_queue a
+USING screens_review_queue b
+WHERE a.screen_id = b.screen_id
+  AND a.id > b.id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_screens_review_queue_screen_id
+    ON screens_review_queue(screen_id);
+
 CREATE TABLE IF NOT EXISTS screens_eval (
     id                       BIGSERIAL PRIMARY KEY,
     run_id                   UUID NOT NULL REFERENCES pipeline_runs(run_id),

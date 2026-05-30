@@ -12,7 +12,11 @@ from rico_pipeline.slack import post_slack
 log = logging.getLogger(__name__)
 
 
-def duplicate_audit(settings: Settings, run_id: str) -> dict[str, int]:
+def duplicate_audit(
+    settings: Settings,
+    run_id: str,
+    airflow_log_url: str | None = None,
+) -> dict[str, int]:
     details = {"metadata_duplicates": [], "embedding_duplicates": []}
     with connect(settings) as conn, conn.cursor() as cur:
         cur.execute(
@@ -68,9 +72,10 @@ def duplicate_audit(settings: Settings, run_id: str) -> dict[str, int]:
 
     log.error("run_id=%s duplicate audit failed: %s", run_id, details)
     finish_run(settings, run_id, "paused-by-audit")
+    log_part = f" airflow_log={airflow_log_url}" if airflow_log_url else ""
     post_slack(
         settings,
         "RICO pipeline audit failed "
-        f"run_id={run_id} duplicate_keys={json.dumps(details, sort_keys=True)}",
+        f"run_id={run_id}{log_part} duplicate_keys={json.dumps(details, sort_keys=True)}",
     )
     raise AuditError(f"duplicate audit failed for run_id={run_id}: {details}")

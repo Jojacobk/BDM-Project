@@ -20,6 +20,7 @@ x-airflow-common: &airflow-common
     OLLAMA_URL: http://ollama:11434
     OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
     RICO_DEFAULT_LIMIT: ${RICO_DEFAULT_LIMIT:-5}
+    GIT_SHA: ${GIT_SHA:-unknown}
     SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
     SLACK_WEBHOOK_CONN_ID: ${SLACK_WEBHOOK_CONN_ID:-}
   volumes:

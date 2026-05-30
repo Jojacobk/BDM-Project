@@ -66,15 +66,18 @@ def create_run(
     return run_id
 
 
-def finish_run(settings: Settings, run_id: str, status: str) -> None:
+def finish_run(settings: Settings, run_id: str, status: str) -> float:
     with connect(settings) as conn, conn.cursor() as cur:
         cur.execute(
             """
             UPDATE pipeline_runs
             SET ended_at = %s, status = %s
             WHERE run_id = %s
+            RETURNING EXTRACT(EPOCH FROM (ended_at - started_at))::float
             """,
             (datetime.now(UTC), status, run_id),
         )
+        duration_seconds = float(cur.fetchone()[0] or 0.0)
         conn.commit()
     log.info("run_id=%s finished status=%s", run_id, status)
+    return duration_seconds

@@ -24,7 +24,7 @@ start -> ingest -> parse -> [embed_image, embed_text, extract] -> load -> audit 
 - Traceability: every destination row has `run_id` and `source_fingerprint`, and every run records model versions, prompt version, Airflow run ID, limit, and git SHA.
 - Circuit breaker audit: duplicate detection is its own visible task. When it fails, eval is skipped and the run is marked `paused-by-audit`.
 - Observability: `pipeline_metrics` stores task health and data quality metrics so the pipeline can be evaluated with SQL.
-- Slack notifications: start, audit failure, and finish notifications are attempted through `SLACK_WEBHOOK_URL`; notification failure never fails the data pipeline.
+- Slack notifications: start, audit failure, and finish notifications are attempted through `SLACK_WEBHOOK_URL`; notification failure never fails the data pipeline. Audit-failure notifications include duplicate keys and the Airflow audit task log URL when Airflow provides it.
 
 ## Definition Of Done Evidence
 
@@ -37,7 +37,7 @@ Evidence collected on May 30, 2026 from the local Docker stack:
 - Clean destination counts after repeated runs:
   - `screens_metadata`: 20 rows, 20 traceable
   - `screens_embeddings`: 40 rows, 40 traceable
-  - `screens_review_queue`: 7 rows total across historical runs
+  - `screens_review_queue`: current-state table keyed by `screen_id`
   - Final run review queue rows: 1
 - Object storage proof:
   - MinIO bucket `rico-raw`: 40 objects, matching 20 PNG files plus 20 hierarchy JSON files.
@@ -53,7 +53,7 @@ Evidence collected on May 30, 2026 from the local Docker stack:
   - `n_queries = 20`
   - `recall_at_5 = 1`
 - Metrics proof:
-  - `pipeline_metrics` includes task duration, rows in/out, retries, data quality percentages, vector dimensions, zero-vector percentages, and a readable `run.summary`.
+  - `pipeline_metrics` includes task duration, total run duration, rows in/out, retries, data quality percentages, vector dimensions, zero-vector percentages, and a readable `run.summary`.
   - Final summary: `metadata_rows=20 extracted=95.0% confident=95.0% review_queue=5.0% apps=6 categories=6`
   - CLIP image vectors: 20 rows, average dimensionality 512, 0% zero vectors.
   - SBERT text vectors: 20 rows, average dimensionality 384, 0% zero vectors.
@@ -90,6 +90,37 @@ Observed behavior:
 ```
 
 This proves the audit is a real circuit breaker, not a warning-only check.
+
+## Post-Feedback Verification Evidence
+
+After reviewing the project against the instructor-facing requirements, the following fixes were made and verified:
+
+- `screens_review_queue` is now idempotent by `screen_id`.
+  - Failed extraction updates the existing review queue row instead of blindly appending.
+  - Successful extraction deletes any old review queue row for that screen.
+  - Migration adds a unique current-state index on `screens_review_queue(screen_id)`.
+- `pipeline_runs.git_sha` now records the running code version through `GIT_SHA`.
+- `pipeline_metrics` now stores `run.duration_seconds`.
+- Audit-failure Slack messages now include the Airflow audit task log URL when Airflow provides it.
+- Operational start/finish/status logic was moved from the DAG file into `src/rico_pipeline/dag_support.py`, keeping the DAG focused on orchestration.
+
+Post-fix validation run:
+
+```text
+post_fix_verify__20260530T202955__limit_5
+```
+
+Observed proof:
+
+- `pipeline_runs.status = 'succeeded'`
+- `pipeline_runs.limit_param = 5`
+- `pipeline_runs.git_sha` was populated with the deployed short Git SHA, not `unknown`
+- `run.duration_seconds = 433.55349`
+- `audit_results.passed = true`
+- `screens_eval.recall_at_5 = 1`
+- Review queue duplicate screen IDs: `0`
+- Metadata duplicate keys: `0`
+- Embedding duplicate keys: `0`
 
 ## How To Reproduce
 
@@ -165,14 +196,14 @@ Use this checklist when preparing screenshots and the bonus video. Each item map
    - Show:
 
      ```sql
-     SELECT run_id, dag_run_id, status, limit_param, started_at, ended_at
+     SELECT run_id, dag_run_id, status, limit_param, git_sha, started_at, ended_at
      FROM pipeline_runs
      ORDER BY started_at DESC
      LIMIT 5;
      ```
 
    - Why: proves run tracking, final status, and `LIMIT`.
-   - Point out: `status = succeeded` and `limit_param = 20`.
+   - Point out: `status = succeeded`, `limit_param = 20`, and `git_sha` is the commit that ran.
 
 4. Destination row counts and traceability
    - Show:

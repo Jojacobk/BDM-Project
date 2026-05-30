@@ -352,17 +352,34 @@ def extract(settings: Settings, run_id: str) -> dict[str, int]:
                     """,
                     (json.dumps(body), prompt_version, confidence, sid, run_id),
                 )
+                cur.execute(
+                    "DELETE FROM screens_review_queue WHERE screen_id = %s",
+                    (sid,),
+                )
                 rows_out += 1
             except Exception as exc:  # noqa: BLE001
                 cur.execute(
                     """
-                    INSERT INTO screens_review_queue (
-                        screen_id, run_id, source_fingerprint, reason, raw_output
-                    )
-                    VALUES (%s, %s, %s, %s, %s)
+                    UPDATE screens_review_queue
+                    SET run_id = %s,
+                        source_fingerprint = %s,
+                        reason = %s,
+                        raw_output = %s,
+                        created_at = NOW()
+                    WHERE screen_id = %s
                     """,
-                    (sid, run_id, source_fingerprint, str(exc), raw_output),
+                    (run_id, source_fingerprint, str(exc), raw_output, sid),
                 )
+                if cur.rowcount == 0:
+                    cur.execute(
+                        """
+                        INSERT INTO screens_review_queue (
+                            screen_id, run_id, source_fingerprint, reason, raw_output
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (sid, run_id, source_fingerprint, str(exc), raw_output),
+                    )
                 log.warning("run_id=%s screen_id=%s extraction failed: %s", run_id, sid, exc)
         conn.commit()
     return {"rows_in": len(rows), "rows_out": rows_out, "seconds": time.perf_counter() - started}

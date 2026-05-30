@@ -1,7 +1,7 @@
 .PHONY: up down logs pull-models migrate trigger test clean reset-db
 
 up:
-	docker compose up -d --build
+	GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) docker compose up -d --build
 
 down:
 	docker compose down

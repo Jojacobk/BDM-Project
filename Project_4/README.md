@@ -29,6 +29,8 @@ make pull-models
 
 You can optionally copy `.env.example` to `.env` if you want to override defaults or configure Slack.
 
+`make up` exports the current short Git commit SHA into the Airflow containers as `GIT_SHA`, so `pipeline_runs.git_sha` records the code version used for each run. If you start Docker Compose manually, set `GIT_SHA` first or leave it as `unknown` for local testing only.
+
 Airflow UI:
 
 - URL: <http://localhost:8080>
@@ -83,8 +85,9 @@ The DAG updates existing destination rows by the natural keys from the Week 7 sc
 
 - `screens_metadata.screen_id`
 - `screens_embeddings (screen_id, model_name, model_version, embedding_kind)`
+- `screens_review_queue.screen_id`
 
-Re-running with the same `LIMIT` creates a new `pipeline_runs` row and new metrics, but it does not add duplicate destination rows. The updated rows receive the latest `run_id`, so the current run remains traceable. If a duplicate row is manually inserted, the next run refreshes matching rows and the audit catches the duplicate keys.
+Re-running with the same `LIMIT` creates a new `pipeline_runs` row and new metrics, but it does not add duplicate destination rows. The updated rows receive the latest `run_id`, so the current run remains traceable. If extraction later succeeds for a screen, its old review queue row is removed. If a duplicate row is manually inserted, the next run refreshes matching rows and the audit catches the duplicate keys.
 
 ## Audit Failure
 
@@ -108,6 +111,7 @@ On failure:
 `pipeline_metrics` stores:
 
 - per-task duration
+- total run duration
 - rows in and rows out
 - retries
 - final quality summary
@@ -143,6 +147,8 @@ Notifications are sent when:
 - a run starts
 - the audit fails
 - a run finishes
+
+The audit-failure message includes the duplicate keys and the Airflow audit task log URL when Airflow provides it.
 
 ## Tests
 
@@ -192,6 +198,25 @@ Observed results:
 - `screens_eval.recall_at_5`: `1`
 - `run.summary`: `metadata_rows=20 extracted=95.0% confident=95.0% review_queue=5.0% apps=6 categories=6`
 - MinIO `rico-raw` objects: 40
+
+Post-feedback validation run:
+
+```text
+post_fix_verify__20260530T202955__limit_5
+```
+
+Observed results:
+
+- Airflow run state: `success`
+- `pipeline_runs.status`: `succeeded`
+- `pipeline_runs.limit_param`: `5`
+- `pipeline_runs.git_sha`: populated with the deployed short Git SHA, not `unknown`
+- `run.duration_seconds`: `433.55349`
+- `audit_results.passed`: `true`
+- `screens_eval.recall_at_5`: `1`
+- Review queue duplicate screen IDs: `0`
+- Metadata duplicate keys: `0`
+- Embedding duplicate keys: `0`
 
 Recommended screenshots for submission:
 
