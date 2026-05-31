@@ -27,6 +27,8 @@ TASK_IDS = [
     "eval",
 ]
 
+METRIC_TASK_IDS = TASK_IDS + ["audit"]
+
 
 def limit_from_context(context: dict) -> int:
     settings = load_settings()
@@ -99,7 +101,7 @@ def finish_stage(**context) -> None:
     dag_run = context["dag_run"]
     run_id = _run_id(context)
 
-    for task_id in TASK_IDS:
+    for task_id in METRIC_TASK_IDS:
         result = ti.xcom_pull(task_ids=task_id)
         task_instance = dag_run.get_task_instance(task_id)
         record_task_metrics(settings, run_id, task_id, result, _retries_used(task_instance))
@@ -107,7 +109,7 @@ def finish_stage(**context) -> None:
     current_status = _current_run_status(settings, run_id)
     task_states = {
         task_id: getattr(dag_run.get_task_instance(task_id), "state", None)
-        for task_id in TASK_IDS + ["audit"]
+        for task_id in METRIC_TASK_IDS
     }
     if current_status == "paused-by-audit":
         status = "paused-by-audit"
@@ -147,5 +149,5 @@ def _current_run_status(settings, run_id: str) -> str:
 def _retries_used(task_instance) -> int:
     if task_instance is None:
         return 0
-    try_number = int(getattr(task_instance, "try_number", 1) or 1)
+    try_number = int(getattr(task_instance, "_try_number", 1) or 1)
     return max(try_number - 1, 0)

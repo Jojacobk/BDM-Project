@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 
 from rico_pipeline.config import Settings
 from rico_pipeline.db import connect
@@ -17,6 +18,7 @@ def duplicate_audit(
     run_id: str,
     airflow_log_url: str | None = None,
 ) -> dict[str, int]:
+    started = time.perf_counter()
     details = {"metadata_duplicates": [], "embedding_duplicates": []}
     with connect(settings) as conn, conn.cursor() as cur:
         cur.execute(
@@ -56,6 +58,16 @@ def duplicate_audit(
             for row in cur.fetchall()
         ]
 
+        cur.execute(
+            """
+            SELECT
+                (SELECT count(*)::int FROM screens_metadata WHERE run_id = %s),
+                (SELECT count(*)::int FROM screens_embeddings WHERE run_id = %s)
+            """,
+            (run_id, run_id),
+        )
+        metadata_count, embedding_count = cur.fetchone()
+
         passed = not details["metadata_duplicates"] and not details["embedding_duplicates"]
         cur.execute(
             """
@@ -68,7 +80,11 @@ def duplicate_audit(
 
     if passed:
         log.info("run_id=%s duplicate audit passed", run_id)
-        return {"metadata_duplicates": 0, "embedding_duplicates": 0}
+        return {
+            "rows_in": metadata_count + embedding_count,
+            "rows_out": 1,
+            "seconds": time.perf_counter() - started,
+        }
 
     log.error("run_id=%s duplicate audit failed: %s", run_id, details)
     finish_run(settings, run_id, "paused-by-audit")

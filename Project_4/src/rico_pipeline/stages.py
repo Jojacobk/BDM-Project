@@ -414,14 +414,15 @@ def load(settings: Settings, run_id: str) -> dict[str, int]:
         cur.execute(
             """
             SELECT
-                count(*) FILTER (WHERE embedding_kind = 'image')::int,
-                count(*) FILTER (WHERE embedding_kind = 'text')::int
+                count(DISTINCT screen_id) FILTER (WHERE embedding_kind = 'image')::int,
+                count(DISTINCT screen_id) FILTER (WHERE embedding_kind = 'text')::int,
+                count(*)::int
             FROM screens_embeddings
             WHERE run_id = %s
             """,
             (run_id,),
         )
-        image_count, text_count = cur.fetchone()
+        image_count, text_count, embedding_count = cur.fetchone()
         cur.execute(
             """
             SELECT count(*)::int
@@ -444,7 +445,7 @@ def load(settings: Settings, run_id: str) -> dict[str, int]:
     if failures:
         raise RuntimeError(f"load validation failed for run_id={run_id}: {failures}")
 
-    loaded_count = metadata_count + image_count + text_count + review_queue_count
+    loaded_count = metadata_count + embedding_count + review_queue_count
     return {
         "rows_in": metadata_count + image_count + text_count,
         "rows_out": loaded_count,
