@@ -9,3 +9,4 @@ def test_successful_audit_returns_task_health_metrics():
     assert '"rows_out": 1' in audit_src
     assert '"seconds": time.perf_counter() - started' in audit_src
     assert 'METRIC_TASK_IDS = TASK_IDS + ["audit"]' in support_src
+    assert 'record_metric(settings, run_id, "run.status", metric_text=status)' in support_src

@@ -120,6 +120,7 @@ def finish_stage(**context) -> None:
 
     duration_seconds = finish_run(settings, run_id, status)
     record_metric(settings, run_id, "run.duration_seconds", duration_seconds)
+    record_metric(settings, run_id, "run.status", metric_text=status)
     summary = collect_quality_metrics(settings, run_id)
     post_slack(
         settings,
