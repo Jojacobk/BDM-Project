@@ -93,6 +93,7 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       OLLAMA_URL: http://ollama:11434
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      GIT_SHA: ${GIT_SHA:-unknown}
     entrypoint: /bin/bash
     command: -c "airflow db migrate && airflow users create -r Admin -u admin -p admin -e a@b.c -f a -l b || true"
     restart: "no"

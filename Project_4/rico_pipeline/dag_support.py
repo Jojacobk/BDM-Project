@@ -82,3 +82,7 @@ def finalize(airflow_context):
         slack.post_slack(config.SLACK_WEBHOOK_URL,
                          slack.audit_failed_message(ctx.run_id, ["see audit_results"], "(airflow log)"))
     slack.post_slack(config.SLACK_WEBHOOK_URL, slack.run_finished_message(line))
+    # Reflect a halted/failed run in the Airflow run state (§3.3: "the run is marked failed").
+    # Metrics + Slack are already recorded above, so observability is preserved.
+    if status != "succeeded":
+        raise RuntimeError(f"run_id={ctx.run_id} ended status={status}")

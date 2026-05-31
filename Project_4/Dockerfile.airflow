@@ -2,7 +2,7 @@ FROM apache/airflow:2.10.5-python3.11
 ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
 COPY requirements.txt requirements-pipeline.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements.txt -r /tmp/requirements-pipeline.txt
-COPY pyproject.toml /opt/airflow/rico/pyproject.toml
-COPY rico_pipeline /opt/airflow/rico/rico_pipeline
+RUN pip install --no-cache-dir --retries 20 --timeout 300 -r /tmp/requirements.txt -r /tmp/requirements-pipeline.txt
+COPY --chown=airflow:0 pyproject.toml /opt/airflow/rico/pyproject.toml
+COPY --chown=airflow:0 rico_pipeline /opt/airflow/rico/rico_pipeline
 RUN pip install --no-cache-dir -e /opt/airflow/rico
