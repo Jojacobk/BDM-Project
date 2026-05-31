@@ -320,7 +320,7 @@ The required bonus demonstration video is included in the repository:
 | [`12_sql_quality_metrics.png`](images/12_sql_quality_metrics.png) | Destination-quality metrics |
 | [`13_sql_task_health_metrics.png`](images/13_sql_task_health_metrics.png) | Per-task health metrics from the prior pushed-code verification run |
 
-## 13. Validation Commands
+## 13. Validation Results
 
 The final checks passed:
 
@@ -329,23 +329,12 @@ The final checks passed:
 No data found
 ```
 
-Commands:
+## 14. Repository Artifacts
 
-```bash
-docker compose exec -T airflow-scheduler python -m pytest /opt/airflow/tests
-docker compose exec -T airflow-scheduler airflow dags list-import-errors
-```
-
-## 14. Submission Package
-
-Submit:
-
-1. GitHub repository link:
-
-   <https://github.com/Jojacobk/BDM-Project/tree/Buland_project_4/Project_4>
-
-2. Optional bonus video:
-
-   [`bonus_video/agent_backfills_recording.mp4`](bonus_video/agent_backfills_recording.mp4)
-
-Do not commit `.env`, Slack tokens, or webhook URLs. Commits made after the instructor deadline are ignored.
+| Artifact | Location |
+| --- | --- |
+| Project documentation | [`README.md`](README.md) |
+| Results report | [`REPORT.md`](REPORT.md) |
+| Screenshot evidence | [`images/`](images/) |
+| Bonus service | [`bonus_backfill_agent/`](bonus_backfill_agent/) |
+| Bonus demonstration video | [`bonus_video/agent_backfills_recording.mp4`](bonus_video/agent_backfills_recording.mp4) |

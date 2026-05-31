@@ -30,50 +30,41 @@ Payload:
 
 ## Required Slack App Settings
 
-Create a Slack app with:
+The Slack App configuration is:
 
 - Bot token scopes: `app_mentions:read`, `chat:write`
 - Socket Mode enabled
 - Event subscription: `app_mention`
 - Bot installed into the workspace
-- Bot invited to the channel where you will test
+- Bot invited to the target channel
 
-Add these values to `../.env`:
+Required `../.env` values:
 
 ```text
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
 ```
 
-Never commit real Slack tokens.
+## Service Commands
 
-## Run
-
-Start the core stack first:
+Core stack:
 
 ```bash
 cd Project_4
 make up
 ```
 
-Then start the bonus agent:
+Bonus agent:
 
 ```bash
 docker compose --profile agent up -d backfill-agent
 ```
 
-Watch logs:
+Agent logs:
 
 ```bash
 docker compose logs -f backfill-agent
 ```
-
-## Demo Proof
-
-1. Mention the bot in Slack: `@DataBot backfill 20 screens`.
-2. Bot replies in the thread with the Airflow `dag_run_id`.
-3. Airflow UI shows a new manual run.
-4. `pipeline_runs.limit_param` shows `20`.
 
 ## Verified Live Demo
 
@@ -85,6 +76,4 @@ Live Slack validation was completed with:
 - `pipeline_runs.status`: `succeeded`
 - `pipeline_runs.limit_param`: `20`
 - Duplicate audit: passed
-- Recorded demo: `agent backfills recording.mp4`, kept outside Git for separate submission
-
-For live presentation help, see [PRESENTATION_NOTES.md](PRESENTATION_NOTES.md).
+- Recorded demo: [`../bonus_video/agent_backfills_recording.mp4`](../bonus_video/agent_backfills_recording.mp4)

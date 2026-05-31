@@ -40,9 +40,9 @@ Project_4/
 
 The required pipeline and optional bonus are separate. The Slack backfill agent is an external client and is not part of the Airflow DAG.
 
-## Start The Stack
+## Core Stack Commands
 
-From the `Project_4` folder:
+The Docker stack is managed from the `Project_4` folder:
 
 ```bash
 make up
@@ -58,21 +58,21 @@ Local services:
 | Airflow | <http://localhost:8080> | `airflow` / `airflow` |
 | MinIO Console | <http://localhost:9001> | `minioadmin` / `minioadmin` |
 
-Stop the stack with:
+The corresponding shutdown command is:
 
 ```bash
 make down
 ```
 
-## Run The DAG
+## DAG Trigger
 
-Trigger the development run:
+The development trigger command is:
 
 ```bash
 make trigger
 ```
 
-Or trigger manually in Airflow with:
+The equivalent Airflow manual configuration is:
 
 ```json
 {"LIMIT": 5}
@@ -146,19 +146,19 @@ If duplicates exist:
 
 ## Slack Notifications
 
-Set the incoming webhook in `.env`:
+The incoming-webhook environment configuration is:
 
 ```text
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
-Alternatively, configure an Airflow connection and set:
+The Airflow-connection alternative is:
 
 ```text
-SLACK_WEBHOOK_CONN_ID=your_connection_id
+SLACK_WEBHOOK_CONN_ID=slack_webhook_connection
 ```
 
-The webhook URL must never be committed. Missing or failing Slack notifications log a warning and do not fail the pipeline.
+The webhook URL is excluded from version control. Missing or failing Slack notifications log a warning and do not fail the pipeline.
 
 Notifications are attempted when:
 
@@ -178,17 +178,17 @@ It listens for Slack App mentions through Socket Mode:
 
 The agent uses Ollama to extract intent and `LIMIT`, validates the limit, calls the authenticated Airflow REST API, and replies in the Slack thread with the generated `dag_run_id`.
 
-After configuring `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`, start it with:
+With `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` configured in `.env`, the bonus service command is:
 
 ```bash
 docker compose --profile agent up -d backfill-agent
 ```
 
-See [`bonus_backfill_agent/README.md`](bonus_backfill_agent/README.md) for Slack App setup.
+Slack App configuration details are documented in [`bonus_backfill_agent/README.md`](bonus_backfill_agent/README.md).
 
 ## Tests And Validation
 
-Run:
+Validation commands:
 
 ```bash
 docker compose exec -T airflow-scheduler python -m pytest /opt/airflow/tests
@@ -202,7 +202,7 @@ Expected result:
 No data found
 ```
 
-Useful SQL:
+Validation SQL:
 
 ```sql
 SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT 5;
@@ -213,17 +213,11 @@ LIMIT 30;
 SELECT * FROM audit_results ORDER BY created_at DESC LIMIT 5;
 ```
 
-## Submission
+## Bonus Video Evidence
 
-Submit the GitHub repository link:
-
-<https://github.com/Jojacobk/BDM-Project/tree/Buland_project_4/Project_4>
-
-The optional bonus demonstration video is included in the repository:
+The bonus demonstration video is included in the repository:
 
 [`bonus_video/agent_backfills_recording.mp4`](bonus_video/agent_backfills_recording.mp4)
-
-Do not commit `.env`, Slack credentials, or the Slack webhook URL. Commits made after the instructor deadline will be ignored.
 
 ## Evaluation Criteria
 
