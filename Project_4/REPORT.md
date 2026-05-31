@@ -123,13 +123,15 @@ final_submission_verify__20260531T195333__limit_5
 
 ## 4. Idempotency And Destination Traceability
 
-After repeated runs, the current destination state remained:
+Screenshot `04_sql_traceability_idempotency.png` captured this traceable destination state after repeated runs:
 
 | Table | Total Rows | Rows With Non-Null `run_id` And `source_fingerprint` |
 | --- | ---: | ---: |
 | `screens_metadata` | `20` | `20` |
 | `screens_embeddings` | `40` | `40` |
-| `screens_review_queue` | `0` | `0` |
+| `screens_review_queue` | `4` | `4` |
+
+The review queue is an idempotent current-state table keyed by `screen_id`. Failed extraction creates or updates a queue row, while a later successful extraction removes the resolved row. A later final clean database check returned `0` review-queue rows after successful re-extraction. Both observations are consistent with the implemented queue lifecycle.
 
 Duplicate-key checks:
 
