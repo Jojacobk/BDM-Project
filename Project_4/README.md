@@ -177,7 +177,7 @@ SELECT metric_name, metric_value, metric_text FROM pipeline_metrics ORDER BY cre
 SELECT * FROM audit_results ORDER BY created_at DESC LIMIT 5;
 ```
 
-For a fuller explanation of the concepts and the local run evidence, see [REPORT.md](REPORT.md).
+Optional supporting notes are available in [REPORT.md](REPORT.md), but the README contains the complete submission walkthrough.
 
 ## Verified Local Evidence
 
@@ -240,7 +240,69 @@ Observed results:
 - `eval` was skipped.
 - The controlled duplicate was deleted after the demo.
 
-The numbered submission screenshots are stored in [`images/`](images/). See [REPORT.md](REPORT.md) for the grading-point mapping and live-presentation guidance.
+## Submission Evidence
+
+The repository includes the verified evidence directly below so the main-project submission can be reviewed from this README without opening a separate report.
+
+### Required DAG And Audit Circuit Breaker
+
+The successful graph shows the required order and parallel middle tasks:
+
+![Successful Airflow DAG](images/01_airflow_success.png)
+
+The controlled duplicate demo shows that `audit` fails before `eval`:
+
+![Audit circuit breaker](images/02_airflow_audit_failure.png)
+
+The persisted failed audit records the full duplicate key and confirms that no eval row was written:
+
+![Persisted audit failure](images/05_sql_audit_failure.png)
+
+### Traceability, Idempotency, And Metrics
+
+The traceability query shows populated `run_id` and `source_fingerprint` values and zero duplicate natural keys:
+
+![Traceability and idempotency](images/04_sql_traceability_idempotency.png)
+
+The destination-quality metrics show CLIP and SBERT dimensions, zero-vector percentages, extraction coverage, confidence, review-queue percentage, and distinct application/category counts:
+
+![Quality metrics](images/12_sql_quality_metrics.png)
+
+The final pushed-code run shows every required task's duration, rows in/out, retries, final status, total duration, passed audit, and deployed code revision `0b2da68`:
+
+![Task health metrics](images/13_sql_task_health_metrics.png)
+
+### Object Storage And Slack
+
+MinIO contains the source PNG and JSON blobs:
+
+![MinIO raw objects](images/10_minio_raw_objects.png)
+
+Slack notifications are verified for run start, successful finish, and audit halt:
+
+![Slack run started](images/07_slack_run_started.png)
+
+![Slack run finished](images/08_slack_run_finished.png)
+
+![Slack audit failed](images/09_slack_audit_failed.png)
+
+### Complete Screenshot Index
+
+| Screenshot | Evidence |
+| --- | --- |
+| [`01_airflow_success.png`](images/01_airflow_success.png) | Successful DAG graph |
+| [`02_airflow_audit_failure.png`](images/02_airflow_audit_failure.png) | Audit halt before eval |
+| [`03_sql_success_summary.png`](images/03_sql_success_summary.png) | Successful run summary, passed audit, and recall@5 |
+| [`04_sql_traceability_idempotency.png`](images/04_sql_traceability_idempotency.png) | Traceable destination rows and zero duplicate keys |
+| [`05_sql_audit_failure.png`](images/05_sql_audit_failure.png) | Persisted failed audit and zero eval rows |
+| [`06_slack_webhook_configured.png`](images/06_slack_webhook_configured.png) | Slack webhook verification |
+| [`07_slack_run_started.png`](images/07_slack_run_started.png) | Required start notification |
+| [`08_slack_run_finished.png`](images/08_slack_run_finished.png) | Required finish notification |
+| [`09_slack_audit_failed.png`](images/09_slack_audit_failed.png) | Audit-failure notification with task-log URL |
+| [`10_minio_raw_objects.png`](images/10_minio_raw_objects.png) | MinIO raw-object storage |
+| [`11_bonus_slack_backfill.png`](images/11_bonus_slack_backfill.png) | Bonus Slack mention and threaded Airflow run confirmation |
+| [`12_sql_quality_metrics.png`](images/12_sql_quality_metrics.png) | Persisted destination-quality metrics |
+| [`13_sql_task_health_metrics.png`](images/13_sql_task_health_metrics.png) | Persisted per-task health metrics and pushed code SHA |
 
 ## Bonus: Backfill Agent
 
@@ -260,6 +322,10 @@ docker compose --profile agent up -d backfill-agent
 ```
 
 Detailed setup is in [bonus_backfill_agent/README.md](bonus_backfill_agent/README.md).
+
+The live bonus path is visible directly in the repository:
+
+![Bonus Slack backfill](images/11_bonus_slack_backfill.png)
 
 The required bonus demonstration video was recorded separately as:
 
