@@ -1,65 +1,86 @@
 # Project 4 - Production RICO Airflow Pipeline
 
-This folder implements Project 4 as a self-contained Docker project. It translates the Week 7 RICO notebook into an Airflow DAG with traceability, idempotent writes, a duplicate-detection audit, persisted metrics, and Slack notifications.
+This self-contained Docker project converts the Week 7 RICO notebook into a scheduled, idempotent, traceable, auditable, and observable Airflow pipeline.
 
-The DAG shape is:
+The required DAG is:
 
 ```text
 ingest -> parse -> [embed_image, embed_text, extract] -> load -> audit -> eval
 ```
 
-## What It Uses From Week 7
+The visible `start` and `finish` tasks are operational wrappers for run tracking, metrics, and Slack notifications. Business logic lives under `src/rico_pipeline`; the DAG file contains orchestration only.
+
+## Week 7 Modules Reused
 
 - HuggingFace dataset: `rootsautomation/RICO-Screen2Words`
-- MinIO bucket for PNG and hierarchy JSON blobs
+- MinIO storage for PNG and hierarchy JSON blobs
 - Postgres + pgvector destination tables
-- CLIP image embeddings with `open-clip ViT-B-32 laion2b_s34b_b79k`
-- SBERT text embeddings with `sentence-transformers/all-MiniLM-L6-v2`
-- Ollama extraction with `qwen2.5:3b`
-- The same hierarchy parser and reading-order text representation
-- Recall@5 evaluation against stored SBERT vectors
+- CLIP image embeddings: `open-clip ViT-B-32 laion2b_s34b_b79k`
+- SBERT text embeddings: `sentence-transformers/all-MiniLM-L6-v2`
+- Ollama extraction: `qwen2.5:3b`
+- Versioned local extraction prompt: `v1`
+- Recall@5 evaluation using stored SBERT vectors
 
-## Setup
+## Project Structure
+
+```text
+Project_4/
+|-- dags/                     # thin Airflow DAG
+|-- src/rico_pipeline/        # pipeline business logic
+|-- migrations/               # Postgres + pgvector schema
+|-- prompts/                  # versioned local LLM prompt
+|-- tests/                    # focused project tests
+|-- bonus_backfill_agent/     # optional standalone Slack agent
+|-- images/                   # verified evidence screenshots
+|-- docker-compose.yml
+|-- Makefile
+|-- README.md
+`-- REPORT.md
+```
+
+The required pipeline and optional bonus are separate. The Slack backfill agent is an external client and is not part of the Airflow DAG.
+
+## Start The Stack
+
+From the `Project_4` folder:
 
 ```bash
-cd Project_4
 make up
 make pull-models
 ```
 
-You can optionally copy `.env.example` to `.env` if you want to override defaults or configure Slack.
+`make up` exports the current short Git commit SHA into Airflow as `GIT_SHA`. This value is stored in `pipeline_runs.git_sha` for traceability.
 
-`make up` exports the current short Git commit SHA into the Airflow containers as `GIT_SHA`, so `pipeline_runs.git_sha` records the code version used for each run. If you start Docker Compose manually, set `GIT_SHA` first or leave it as `unknown` for local testing only.
+Local services:
 
-Airflow UI:
+| Service | URL | Credentials |
+| --- | --- | --- |
+| Airflow | <http://localhost:8080> | `airflow` / `airflow` |
+| MinIO Console | <http://localhost:9001> | `minioadmin` / `minioadmin` |
 
-- URL: <http://localhost:8080>
-- Login: `airflow` / `airflow`
+Stop the stack with:
 
-MinIO Console:
-
-- URL: <http://localhost:9001>
-- Login: `minioadmin` / `minioadmin`
+```bash
+make down
+```
 
 ## Run The DAG
 
-Trigger the DAG with the default development limit:
+Trigger the development run:
 
 ```bash
 make trigger
 ```
 
-On Windows, this target avoids fragile shell JSON quoting by calling Airflow's Python trigger API inside the scheduler container.
-
-Or trigger manually from Airflow with config:
+Or trigger manually in Airflow with:
 
 ```json
 {"LIMIT": 5}
 ```
 
-`LIMIT=5` uses the same five Week 7 development screens. Larger limits continue streaming from the same HuggingFace dataset.
+`LIMIT=5` is suitable for development. A larger limit, such as `LIMIT=20` or `LIMIT=50`, processes more screens from the same Week 7 dataset.
 
-## Tables
+## Destination And Support Tables
 
 Core destination tables:
 
@@ -70,267 +91,152 @@ Core destination tables:
 
 Production support tables:
 
-- `pipeline_runs`: one row per DAG run, including model versions, prompt version, git SHA, and final status.
-- `pipeline_metrics`: task health and data quality metrics keyed by `run_id`.
-- `audit_results`: duplicate audit history keyed by `run_id`.
+- `pipeline_runs`: one row per DAG run with run ID, Airflow run ID, timestamps, final status, limit, Git SHA, model versions, and prompt version.
+- `pipeline_metrics`: persisted health and destination-quality metrics keyed by `run_id` and `metric_name`.
+- `audit_results`: persisted duplicate-audit history.
 
-Every row written to destination tables has:
+Rows in `screens_metadata`, `screens_embeddings`, and `screens_review_queue` store:
 
 - `run_id`
 - `source_fingerprint`
 
 ## Idempotency
 
-The DAG updates existing destination rows by the natural keys from the Week 7 schema:
+The pipeline updates destination rows by natural key:
 
 - `screens_metadata.screen_id`
 - `screens_embeddings (screen_id, model_name, model_version, embedding_kind)`
 - `screens_review_queue.screen_id`
 
-Re-running with the same `LIMIT` creates a new `pipeline_runs` row and new metrics, but it does not add duplicate destination rows. The updated rows receive the latest `run_id`, so the current run remains traceable. If extraction later succeeds for a screen, its old review queue row is removed. If a duplicate row is manually inserted, the next run refreshes matching rows and the audit catches the duplicate keys.
+Re-running the DAG with the same `LIMIT` creates a new `pipeline_runs` row and new metrics, but does not create duplicate destination rows or duplicate MinIO blobs.
 
-## Audit Failure
+## Audit Circuit Breaker
 
-The required audit runs after `load` and before `eval`.
+The required audit runs after `load` and before `eval`. It checks the current run for:
 
-The `load` task is the destination completeness gate. It verifies that the current run has metadata, parsed hierarchy text, image embeddings, and text embeddings before the audit is allowed to run. If any required destination rows are missing, the DAG fails before audit/eval instead of producing misleading downstream evidence.
+- duplicate `screens_metadata.screen_id`
+- duplicate `(screen_id, model_name, model_version, embedding_kind)` values in `screens_embeddings`
 
-It fails the DAG if:
+If duplicates exist:
 
-- the same `screen_id` appears more than once in `screens_metadata` for the current run
-- the same `(screen_id, model_name, model_version, embedding_kind)` appears more than once in `screens_embeddings` for the current run
-
-On failure:
-
-- duplicate keys are logged
+- the audit logs the complete duplicate keys
 - `audit_results.passed` is `false`
 - `pipeline_runs.status` becomes `paused-by-audit`
-- `eval` is skipped
-- Slack is attempted if configured
+- Slack receives an audit-failed notification with the Airflow task-log URL
+- `eval` does not run
 
-## Metrics
+## Persisted Metrics
 
 `pipeline_metrics` stores:
 
 - per-task duration
+- per-task rows in and rows out
+- retries per task
 - total run duration
-- rows in and rows out
-- retries
-- final quality summary
+- final run status
+- one-line run summary
 - metadata row count
-- percent with extraction payload
-- percent with confidence >= 0.5
-- percent in review queue
+- extraction payload percentage
+- confidence `>= 0.5` percentage
+- review-queue percentage
 - embedding row count by model version and kind
 - average vector dimensionality
-- percent zero vectors
-- distinct app package and category counts
+- zero-vector percentage
+- distinct application-package and category counts
 
-The final task also logs a one-line summary readable from Airflow logs.
+## Slack Notifications
 
-## Slack
-
-Set this in `.env`:
+Set the incoming webhook in `.env`:
 
 ```text
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
-Or configure an Airflow connection containing the webhook URL and set:
+Alternatively, configure an Airflow connection and set:
 
 ```text
 SLACK_WEBHOOK_CONN_ID=your_connection_id
 ```
 
-The URL must not be committed. If Slack is missing or posting fails, the DAG logs a warning and continues.
+The webhook URL must never be committed. Missing or failing Slack notifications log a warning and do not fail the pipeline.
 
-Notifications are sent when:
+Notifications are attempted when:
 
 - a run starts
-- the audit fails
+- an audit fails
 - a run finishes
 
-The audit-failure message includes the duplicate keys and the Airflow audit task log URL when Airflow provides it.
+## Optional Bonus: Slack Backfill Agent
 
-## Tests
+The optional bonus service is implemented separately in [`bonus_backfill_agent/`](bonus_backfill_agent/).
 
-Local lightweight tests:
-
-```bash
-python -m pip install -e .[dev]
-python -m pytest
-```
-
-Full Docker validation:
-
-```bash
-make up
-make pull-models
-make trigger
-```
-
-Then verify with SQL in Postgres:
-
-```sql
-SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT 5;
-SELECT metric_name, metric_value, metric_text FROM pipeline_metrics ORDER BY created_at DESC LIMIT 20;
-SELECT * FROM audit_results ORDER BY created_at DESC LIMIT 5;
-```
-
-Optional supporting notes are available in [REPORT.md](REPORT.md), but the README contains the complete submission walkthrough.
-
-## Verified Local Evidence
-
-Final pushed-code validation run:
+It listens for Slack App mentions through Socket Mode:
 
 ```text
-submission_verify__20260531T192757__limit_5
+@DataBot backfill 20 screens
 ```
 
-Observed results:
+The agent uses Ollama to extract intent and `LIMIT`, validates the limit, calls the authenticated Airflow REST API, and replies in the Slack thread with the generated `dag_run_id`.
 
-- Airflow run state: `success`
-- `pipeline_runs.status`: `succeeded`
-- `pipeline_runs.limit_param`: `5`
-- `pipeline_runs.git_sha`: `0b2da68`
-- `run.duration_seconds`: `161.819`
-- Persisted task-health metrics include `audit`, duration, rows in/out, and retries.
-- `audit_results.passed`: `true`
-- Duplicate metadata keys: `0`
-- Duplicate embedding keys: `0`
-
-Verified clean destination state:
-
-- `screens_metadata`: 20 rows, all with `run_id` and `source_fingerprint`
-- `screens_embeddings`: 40 rows, all with `run_id` and `source_fingerprint`
-- `screens_review_queue`: all rows have `run_id` and `source_fingerprint`
-- Review queue duplicate screen IDs: `0`
-- MinIO `rico-raw` objects: 40
-
-Verified `LIMIT=20` bonus run:
-
-```text
-slack_backfill__20260531T153522__limit_20
-```
-
-Observed results:
-
-- Airflow run state: `success`
-- `pipeline_runs.status`: `succeeded`
-- `pipeline_runs.limit_param`: `20`
-- `run.duration_seconds`: `348.438199`
-- `audit_results.passed`: `true`
-- `run.summary`: `metadata_rows=20 extracted=100.0% confident=100.0% review_queue=0.0% apps=6 categories=6`
-- CLIP image vectors: 20 rows, average dimensionality 512, 0% zero vectors
-- SBERT text vectors: 20 rows, average dimensionality 384, 0% zero vectors
-
-Verified audit circuit-breaker run:
-
-```text
-slack_audit_failure_demo__20260531T182418__limit_5
-```
-
-Observed results:
-
-- Manually injected duplicate text embedding was detected.
-- `pipeline_runs.status`: `paused-by-audit`
-- `audit_results.passed`: `false`
-- Duplicate key details were persisted and sent to Slack.
-- Airflow task-log URL was included in the Slack message.
-- `eval` was skipped.
-- The controlled duplicate was deleted after the demo.
-
-## Submission Evidence
-
-The repository includes the verified evidence directly below so the main-project submission can be reviewed from this README without opening a separate report.
-
-### Required DAG And Audit Circuit Breaker
-
-The successful graph shows the required order and parallel middle tasks:
-
-![Successful Airflow DAG](images/01_airflow_success.png)
-
-The controlled duplicate demo shows that `audit` fails before `eval`:
-
-![Audit circuit breaker](images/02_airflow_audit_failure.png)
-
-The persisted failed audit records the full duplicate key and confirms that no eval row was written:
-
-![Persisted audit failure](images/05_sql_audit_failure.png)
-
-### Traceability, Idempotency, And Metrics
-
-The traceability query shows populated `run_id` and `source_fingerprint` values and zero duplicate natural keys:
-
-![Traceability and idempotency](images/04_sql_traceability_idempotency.png)
-
-The destination-quality metrics show CLIP and SBERT dimensions, zero-vector percentages, extraction coverage, confidence, review-queue percentage, and distinct application/category counts:
-
-![Quality metrics](images/12_sql_quality_metrics.png)
-
-The final pushed-code run shows every required task's duration, rows in/out, retries, final status, total duration, passed audit, and deployed code revision `0b2da68`:
-
-![Task health metrics](images/13_sql_task_health_metrics.png)
-
-### Object Storage And Slack
-
-MinIO contains the source PNG and JSON blobs:
-
-![MinIO raw objects](images/10_minio_raw_objects.png)
-
-Slack notifications are verified for run start, successful finish, and audit halt:
-
-![Slack run started](images/07_slack_run_started.png)
-
-![Slack run finished](images/08_slack_run_finished.png)
-
-![Slack audit failed](images/09_slack_audit_failed.png)
-
-### Complete Screenshot Index
-
-| Screenshot | Evidence |
-| --- | --- |
-| [`01_airflow_success.png`](images/01_airflow_success.png) | Successful DAG graph |
-| [`02_airflow_audit_failure.png`](images/02_airflow_audit_failure.png) | Audit halt before eval |
-| [`03_sql_success_summary.png`](images/03_sql_success_summary.png) | Successful run summary, passed audit, and recall@5 |
-| [`04_sql_traceability_idempotency.png`](images/04_sql_traceability_idempotency.png) | Traceable destination rows and zero duplicate keys |
-| [`05_sql_audit_failure.png`](images/05_sql_audit_failure.png) | Persisted failed audit and zero eval rows |
-| [`06_slack_webhook_configured.png`](images/06_slack_webhook_configured.png) | Slack webhook verification |
-| [`07_slack_run_started.png`](images/07_slack_run_started.png) | Required start notification |
-| [`08_slack_run_finished.png`](images/08_slack_run_finished.png) | Required finish notification |
-| [`09_slack_audit_failed.png`](images/09_slack_audit_failed.png) | Audit-failure notification with task-log URL |
-| [`10_minio_raw_objects.png`](images/10_minio_raw_objects.png) | MinIO raw-object storage |
-| [`11_bonus_slack_backfill.png`](images/11_bonus_slack_backfill.png) | Bonus Slack mention and threaded Airflow run confirmation |
-| [`12_sql_quality_metrics.png`](images/12_sql_quality_metrics.png) | Persisted destination-quality metrics |
-| [`13_sql_task_health_metrics.png`](images/13_sql_task_health_metrics.png) | Persisted per-task health metrics and pushed code SHA |
-
-## Bonus: Backfill Agent
-
-The bonus work is kept separate from the required Project 4 pipeline in [bonus_backfill_agent](bonus_backfill_agent/).
-
-It is a standalone Slack Socket Mode service that:
-
-- listens for bot mentions such as `@DataBot backfill 20 screens`
-- uses Ollama to parse the intent and requested screen limit
-- calls the Airflow REST API to trigger `rico_production_pipeline`
-- sends a Slack thread reply with the Airflow `dag_run_id`
-
-Run it only after creating a Slack app and adding `SLACK_BOT_TOKEN` plus `SLACK_APP_TOKEN` to `.env`:
+After configuring `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`, start it with:
 
 ```bash
 docker compose --profile agent up -d backfill-agent
 ```
 
-Detailed setup is in [bonus_backfill_agent/README.md](bonus_backfill_agent/README.md).
+See [`bonus_backfill_agent/README.md`](bonus_backfill_agent/README.md) for Slack App setup.
 
-The live bonus path is visible directly in the repository:
+## Tests And Validation
 
-![Bonus Slack backfill](images/11_bonus_slack_backfill.png)
+Run:
 
-The required bonus demonstration video was recorded separately as:
+```bash
+docker compose exec -T airflow-scheduler python -m pytest /opt/airflow/tests
+docker compose exec -T airflow-scheduler airflow dags list-import-errors
+```
+
+Expected result:
+
+```text
+11 passed
+No data found
+```
+
+Useful SQL:
+
+```sql
+SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT 5;
+SELECT metric_name, metric_value, metric_text
+FROM pipeline_metrics
+ORDER BY created_at DESC
+LIMIT 30;
+SELECT * FROM audit_results ORDER BY created_at DESC LIMIT 5;
+```
+
+## Submission
+
+Submit the GitHub repository link:
+
+<https://github.com/Jojacobk/BDM-Project/tree/Buland_project_4/Project_4>
+
+For the optional bonus, also upload the recorded demonstration video separately:
 
 ```text
 agent backfills recording.mp4
 ```
 
-Keep the video outside Git and upload it using the instructor's submission method.
+Do not commit `.env`, Slack credentials, or the Slack webhook URL. Commits made after the instructor deadline will be ignored.
+
+## Evaluation Criteria
+
+The instructor's rubric is:
+
+| Weight | Criterion |
+| --- | --- |
+| 40% | Correctness and idempotency |
+| 20% | Traceability |
+| 20% | Audit circuit breaker |
+| 15% | Observability |
+| 5% | Code quality and README |
+
+Verified results and screenshot evidence are documented in [`REPORT.md`](REPORT.md).
