@@ -274,11 +274,9 @@ Verified result:
 
 ![Bonus Slack backfill](images/11_bonus_slack_backfill.png)
 
-The required bonus video was recorded separately:
+The required bonus demonstration video is included in the repository:
 
-```text
-agent backfills recording.mp4
-```
+[`bonus_video/agent_backfills_recording.mp4`](bonus_video/agent_backfills_recording.mp4)
 
 ## 10. Definition Of Done Verification
 
@@ -346,10 +344,8 @@ Submit:
 
    <https://github.com/Jojacobk/BDM-Project/tree/Buland_project_4/Project_4>
 
-2. Optional bonus video uploaded separately:
+2. Optional bonus video:
 
-   ```text
-   agent backfills recording.mp4
-   ```
+   [`bonus_video/agent_backfills_recording.mp4`](bonus_video/agent_backfills_recording.mp4)
 
 Do not commit `.env`, Slack tokens, or webhook URLs. Commits made after the instructor deadline are ignored.

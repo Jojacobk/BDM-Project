@@ -219,11 +219,9 @@ Submit the GitHub repository link:
 
 <https://github.com/Jojacobk/BDM-Project/tree/Buland_project_4/Project_4>
 
-For the optional bonus, also upload the recorded demonstration video separately:
+The optional bonus demonstration video is included in the repository:
 
-```text
-agent backfills recording.mp4
-```
+[`bonus_video/agent_backfills_recording.mp4`](bonus_video/agent_backfills_recording.mp4)
 
 Do not commit `.env`, Slack credentials, or the Slack webhook URL. Commits made after the instructor deadline will be ignored.
 
