@@ -1,0 +1,15 @@
+boto3>=1.34,<1.35
+botocore>=1.34.70,<1.34.132
+datasets<3
+fsspec<2024.4
+huggingface_hub<0.24
+numpy>=1.26
+open-clip-torch>=2.30
+pandas>=2.0
+pgvector>=0.3
+pillow>=10.0
+psycopg[binary]>=3.2
+pytest>=8.0
+requests>=2.32
+sentence-transformers>=3.0
+torch>=2.4
