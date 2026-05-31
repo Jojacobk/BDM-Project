@@ -181,30 +181,10 @@ For a fuller explanation of the concepts and the local run evidence, see [REPORT
 
 ## Verified Local Evidence
 
-Final validation run:
+Final pushed-code validation run:
 
 ```text
-final_verify__20260530T172708__limit_20
-```
-
-Observed results:
-
-- Airflow run state: `success`
-- `pipeline_runs.status`: `succeeded`
-- `pipeline_runs.limit_param`: `20`
-- `screens_metadata`: 20 rows, all with `run_id` and `source_fingerprint`
-- `screens_embeddings`: 40 rows, all with `run_id` and `source_fingerprint`
-- Duplicate metadata keys: 0
-- Duplicate embedding keys: 0
-- `audit_results.passed`: `true`
-- `screens_eval.recall_at_5`: `1`
-- `run.summary`: `metadata_rows=20 extracted=95.0% confident=95.0% review_queue=5.0% apps=6 categories=6`
-- MinIO `rico-raw` objects: 40
-
-Post-feedback validation run:
-
-```text
-post_fix_verify__20260530T202955__limit_5
+submission_verify__20260531T192757__limit_5
 ```
 
 Observed results:
@@ -212,24 +192,55 @@ Observed results:
 - Airflow run state: `success`
 - `pipeline_runs.status`: `succeeded`
 - `pipeline_runs.limit_param`: `5`
-- `pipeline_runs.git_sha`: populated with the deployed short Git SHA, not `unknown`
-- `run.duration_seconds`: `433.55349`
+- `pipeline_runs.git_sha`: `0b2da68`
+- `run.duration_seconds`: `161.819`
+- Persisted task-health metrics include `audit`, duration, rows in/out, and retries.
 - `audit_results.passed`: `true`
-- `screens_eval.recall_at_5`: `1`
+- Duplicate metadata keys: `0`
+- Duplicate embedding keys: `0`
+
+Verified clean destination state:
+
+- `screens_metadata`: 20 rows, all with `run_id` and `source_fingerprint`
+- `screens_embeddings`: 40 rows, all with `run_id` and `source_fingerprint`
+- `screens_review_queue`: all rows have `run_id` and `source_fingerprint`
 - Review queue duplicate screen IDs: `0`
-- Metadata duplicate keys: `0`
-- Embedding duplicate keys: `0`
+- MinIO `rico-raw` objects: 40
 
-Recommended screenshots for submission:
+Verified `LIMIT=20` bonus run:
 
-- Airflow DAG graph for `rico_production_pipeline`
-- Airflow grid for `final_verify__20260530T172708__limit_20` with all tasks green
-- SQL output for `pipeline_runs`
-- SQL output for `pipeline_metrics`
-- SQL output for `audit_results`
-- SQL output for `screens_eval`
-- MinIO bucket showing stored screen objects
-- Slack bot reply for the bonus backfill run
+```text
+slack_backfill__20260531T153522__limit_20
+```
+
+Observed results:
+
+- Airflow run state: `success`
+- `pipeline_runs.status`: `succeeded`
+- `pipeline_runs.limit_param`: `20`
+- `run.duration_seconds`: `348.438199`
+- `audit_results.passed`: `true`
+- `run.summary`: `metadata_rows=20 extracted=100.0% confident=100.0% review_queue=0.0% apps=6 categories=6`
+- CLIP image vectors: 20 rows, average dimensionality 512, 0% zero vectors
+- SBERT text vectors: 20 rows, average dimensionality 384, 0% zero vectors
+
+Verified audit circuit-breaker run:
+
+```text
+slack_audit_failure_demo__20260531T182418__limit_5
+```
+
+Observed results:
+
+- Manually injected duplicate text embedding was detected.
+- `pipeline_runs.status`: `paused-by-audit`
+- `audit_results.passed`: `false`
+- Duplicate key details were persisted and sent to Slack.
+- Airflow task-log URL was included in the Slack message.
+- `eval` was skipped.
+- The controlled duplicate was deleted after the demo.
+
+The numbered submission screenshots are stored in [`images/`](images/). See [REPORT.md](REPORT.md) for the grading-point mapping and live-presentation guidance.
 
 ## Bonus: Backfill Agent
 
@@ -249,3 +260,11 @@ docker compose --profile agent up -d backfill-agent
 ```
 
 Detailed setup is in [bonus_backfill_agent/README.md](bonus_backfill_agent/README.md).
+
+The required bonus demonstration video was recorded separately as:
+
+```text
+agent backfills recording.mp4
+```
+
+Keep the video outside Git and upload it using the instructor's submission method.

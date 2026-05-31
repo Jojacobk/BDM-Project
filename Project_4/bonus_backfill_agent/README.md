@@ -75,21 +75,16 @@ docker compose logs -f backfill-agent
 3. Airflow UI shows a new manual run.
 4. `pipeline_runs.limit_param` shows `20`.
 
-## Local Validation Already Completed
+## Verified Live Demo
 
-The bonus service has been validated without real Slack credentials:
+Live Slack validation was completed with:
 
-- The Docker image builds successfully.
-- Ollama parsed `@DataBot hey can you run a backfill for 7 screens?` as `intent='run_pipeline'` and `limit=7`.
-- The agent container triggered Airflow and created `slack_backfill__20260530T082231__limit_6`.
-- SQL showed `pipeline_runs.limit_param = 6` for that run.
-
-Live Slack validation was also completed:
-
-- Slack mention: `@databot backfill 6 screens`
-- Bot replied with `slack_backfill__20260530T093655__limit_6`
-- Airflow run succeeded.
-- SQL showed `pipeline_runs.limit_param = 6`
-- Audit passed with no duplicate metadata or embedding keys.
+- Slack mention: `@databot backfill 20 screens`
+- Bot reply: `slack_backfill__20260531T153522__limit_20`
+- Airflow run state: `success`
+- `pipeline_runs.status`: `succeeded`
+- `pipeline_runs.limit_param`: `20`
+- Duplicate audit: passed
+- Recorded demo: `agent backfills recording.mp4`, kept outside Git for separate submission
 
 For live presentation help, see [PRESENTATION_NOTES.md](PRESENTATION_NOTES.md).
